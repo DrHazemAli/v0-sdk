@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
 import { useAtom } from 'jotai'
 import { Sidebar } from '../components/sidebar'
 import { parseOpenAPISpec } from '../lib/openapi-parser'
@@ -18,6 +18,34 @@ export default function Home() {
   const [apiKey] = useAtom(apiKeyAtom)
   const [user, setUser] = useAtom(userAtom)
 
+  const handleSelectEndpoint = useCallback(
+    (endpoint: APIEndpoint) => {
+      const parts = endpoint.id.split('.')
+      const resource = parts.slice(0, -1).join('/')
+      const action = parts[parts.length - 1]
+        .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
+        .toLowerCase()
+      router.push(`/${resource}/${action}`)
+    },
+    [router],
+  )
+
+  const fetchUser = useCallback(
+    async (key: string) => {
+      try {
+        const v0 = createClient({
+          apiKey: key,
+          baseUrl: V0_API_BASE_URL,
+        })
+        const userResponse = await v0.user.get()
+        setUser(userResponse)
+      } catch (error) {
+        console.error('Failed to fetch user:', error)
+      }
+    },
+    [setUser],
+  )
+
   // Load user when API key changes
   useEffect(() => {
     if (apiKey) {
@@ -25,20 +53,7 @@ export default function Home() {
     } else {
       setUser(null)
     }
-  }, [apiKey])
-
-  const fetchUser = async (key: string) => {
-    try {
-      const v0 = createClient({
-        apiKey: key,
-        baseUrl: V0_API_BASE_URL,
-      })
-      const userResponse = await v0.user.get()
-      setUser(userResponse)
-    } catch (error) {
-      console.error('Failed to fetch user:', error)
-    }
-  }
+  }, [apiKey, fetchUser, setUser])
 
   return (
     <div className="h-[100dvh] lg:h-screen flex overflow-hidden bg-background">
@@ -47,15 +62,7 @@ export default function Home() {
         <Sidebar
           categories={categories}
           selectedEndpoint={undefined}
-          onSelectEndpoint={(endpoint: APIEndpoint) => {
-            // Navigate to the endpoint route
-            const parts = endpoint.id.split('.')
-            const resource = parts.slice(0, -1).join('/')
-            const action = parts[parts.length - 1]
-              .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-              .toLowerCase()
-            router.push(`/${resource}/${action}`)
-          }}
+          onSelectEndpoint={handleSelectEndpoint}
           user={user}
           isOpen={true}
           onClose={undefined}
@@ -67,15 +74,7 @@ export default function Home() {
         <Sidebar
           categories={categories}
           selectedEndpoint={undefined}
-          onSelectEndpoint={(endpoint: APIEndpoint) => {
-            // Navigate to the endpoint route
-            const parts = endpoint.id.split('.')
-            const resource = parts.slice(0, -1).join('/')
-            const action = parts[parts.length - 1]
-              .replace(/([a-z0-9])([A-Z])/g, '$1-$2')
-              .toLowerCase()
-            router.push(`/${resource}/${action}`)
-          }}
+          onSelectEndpoint={handleSelectEndpoint}
           user={user}
           isOpen={true}
           onClose={undefined}
