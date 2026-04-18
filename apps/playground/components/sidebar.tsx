@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect, useRef, useCallback } from 'react'
 import Link from 'next/link'
 import { ChevronDown, ChevronRight, Settings, X } from 'lucide-react'
 import { useTheme } from 'next-themes'
@@ -38,7 +38,7 @@ interface SidebarProps {
   mobileFullWidth?: boolean
 }
 
-export function Sidebar({
+function SidebarComponent({
   categories,
   selectedEndpoint,
   onSelectEndpoint,
@@ -50,7 +50,7 @@ export function Sidebar({
   const [expandedCategoriesArray, setExpandedCategoriesArray] = useAtom(
     expandedCategoriesAtom,
   )
-  const [apiKey, setApiKey] = useAtom(apiKeyAtom)
+  const [, setApiKey] = useAtom(apiKeyAtom)
   const [hasApiKey] = useAtom(hasApiKeyAtom)
   const expandedCategories = new Set(expandedCategoriesArray)
   const { theme, setTheme } = useTheme()
@@ -98,7 +98,6 @@ export function Sidebar({
       )
       if (category) {
         setExpandedCategoriesArray((prev) => {
-          // Only add if not already in the array
           if (!prev.includes(category.id)) {
             return [...prev, category.id]
           }
@@ -108,35 +107,27 @@ export function Sidebar({
     }
   }, [selectedEndpoint, categories, setExpandedCategoriesArray])
 
-  const toggleCategory = (categoryId: string) => {
-    if (expandedCategories.has(categoryId)) {
-      setExpandedCategoriesArray((prev) =>
-        prev.filter((id) => id !== categoryId),
-      )
-    } else {
-      setExpandedCategoriesArray((prev) => [...prev, categoryId])
-    }
-  }
+  const toggleCategory = useCallback(
+    (categoryId: string) => {
+      if (expandedCategories.has(categoryId)) {
+        setExpandedCategoriesArray((prev) =>
+          prev.filter((id) => id !== categoryId),
+        )
+      } else {
+        setExpandedCategoriesArray((prev) => [...prev, categoryId])
+      }
+    },
+    [expandedCategories, setExpandedCategoriesArray],
+  )
 
-  const getMethodColor = (method: string) => {
-    const colors: Record<string, string> = {
-      GET: 'text-success-foreground bg-success/10',
-      POST: 'text-info-foreground bg-info/10',
-      PUT: 'text-warning-foreground bg-warning/10',
-      PATCH: 'text-warning-foreground bg-warning/20',
-      DELETE: 'text-destructive-foreground bg-destructive/10',
-    }
-    return colors[method] || 'text-muted-foreground bg-muted'
-  }
-
-  const handleSaveApiKey = () => {
+  const handleSaveApiKey = useCallback(() => {
     if (dialogApiKey) {
       setApiKey(dialogApiKey)
       setDialogApiKey('')
       setShowApiKeyDialog(false)
       window.location.reload()
     }
-  }
+  }, [dialogApiKey, setApiKey])
 
   return (
     <>
@@ -210,7 +201,10 @@ export function Sidebar({
                         <Link
                           key={endpoint.id}
                           href={href}
-                          onClick={() => onClose?.()}
+                          onClick={() => {
+                            onSelectEndpoint(endpoint)
+                            onClose?.()
+                          }}
                           className={`block w-full px-3 py-2 text-sm rounded-md transition-colors ${
                             selectedEndpoint?.id === endpoint.id
                               ? 'bg-primary/10 text-primary'
@@ -398,3 +392,5 @@ export function Sidebar({
     </>
   )
 }
+
+export const Sidebar = memo(SidebarComponent)

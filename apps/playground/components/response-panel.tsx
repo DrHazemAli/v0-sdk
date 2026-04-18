@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { memo, useState, useEffect, useRef, useMemo, useCallback } from 'react'
 import { Copy, Check } from 'lucide-react'
 import { useAtom } from 'jotai'
 import hljs from 'highlight.js/lib/core'
@@ -10,27 +10,35 @@ import { responseAtom, isLoadingAtom } from '../lib/atoms'
 // Register the JSON language
 hljs.registerLanguage('json', json)
 
-export function ResponsePanel() {
+function ResponsePanelComponent() {
   const [response] = useAtom(responseAtom)
   const [isLoading] = useAtom(isLoadingAtom)
   const [copied, setCopied] = useState(false)
   const [activeTab, setActiveTab] = useState<'body' | 'headers'>('body')
   const codeRef = useRef<HTMLElement>(null)
 
+  const displayData = useMemo(
+    () => (response ? response.error || response.data : null),
+    [response],
+  )
+
+  const formattedBody = useMemo(() => {
+    if (!displayData) return ''
+    return JSON.stringify(displayData, null, 2)
+  }, [displayData])
+
   useEffect(() => {
-    if (codeRef.current && response && activeTab === 'body') {
+    if (codeRef.current && formattedBody && activeTab === 'body') {
       hljs.highlightElement(codeRef.current)
     }
-  }, [response, activeTab])
+  }, [formattedBody, activeTab])
 
-  const copyToClipboard = () => {
-    if (response) {
-      const displayData = response.error || response.data
-      navigator.clipboard.writeText(JSON.stringify(displayData, null, 2))
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-    }
-  }
+  const copyToClipboard = useCallback(() => {
+    if (!formattedBody) return
+    navigator.clipboard.writeText(formattedBody)
+    setCopied(true)
+    setTimeout(() => setCopied(false), 2000)
+  }, [formattedBody])
 
   if (isLoading) {
     return (
@@ -54,14 +62,19 @@ export function ResponsePanel() {
   }
 
   const hasError = response.error || (response.status && response.status >= 400)
-  const displayData = response.error || response.data
 
   return (
     <div className="h-full flex flex-col bg-card">
       <div className="flex-none border-b border-border">
         <div className="flex items-center justify-between px-3 lg:px-4 py-2 lg:py-3">
           <div className="flex items-center gap-2 lg:gap-4">
-            <span className="px-2 py-1 text-xs lg:text-sm font-medium rounded bg-secondary text-secondary-foreground">
+            <span
+              className={`px-2 py-1 text-xs lg:text-sm font-medium rounded ${
+                hasError
+                  ? 'bg-destructive/10 text-destructive'
+                  : 'bg-secondary text-secondary-foreground'
+              }`}
+            >
               {response.status || 'Error'} {response.statusText || ''}
             </span>
           </div>
@@ -111,7 +124,7 @@ export function ResponsePanel() {
         {activeTab === 'body' && (
           <pre className="text-xs lg:text-sm font-mono">
             <code ref={codeRef} className="language-json block text-foreground">
-              {JSON.stringify(displayData, null, 2)}
+              {formattedBody}
             </code>
           </pre>
         )}
@@ -134,3 +147,5 @@ export function ResponsePanel() {
     </div>
   )
 }
+
+export const ResponsePanel = memo(ResponsePanelComponent)
